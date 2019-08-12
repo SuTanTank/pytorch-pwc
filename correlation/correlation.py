@@ -280,15 +280,15 @@ def cupy_launch(strFunction, strKernel):
 class _FunctionCorrelation(torch.autograd.Function):
 	@staticmethod
 	def forward(self, first, second):
-		rbot0 = first.new_zeros([ first.size(0), first.size(2) + 8, first.size(3) + 8, first.size(1) ])
-		rbot1 = first.new_zeros([ first.size(0), first.size(2) + 8, first.size(3) + 8, first.size(1) ])
+		rbot1 = torch.zeros([ first.size(0), first.size(2) + 8, first.size(3) + 8, first.size(1) ], device=first.device, dtype=first.dtype)
+		rbot0 = torch.zeros([ first.size(0), first.size(2) + 8, first.size(3) + 8, first.size(1) ], device=first.device, dtype=first.dtype)
 
 		self.save_for_backward(first, second, rbot0, rbot1)
 
 		assert(first.is_contiguous() == True)
 		assert(second.is_contiguous() == True)
 
-		output = first.new_zeros([ first.size(0), 81, first.size(2), first.size(3) ])
+		output = torch.zeros([ first.size(0), 81, first.size(2), first.size(3) ], device=first.device, dtype=first.dtype)
 
 		if first.is_cuda == True:
 			n = first.size(2) * first.size(3)
@@ -340,8 +340,8 @@ class _FunctionCorrelation(torch.autograd.Function):
 
 		assert(gradOutput.is_contiguous() == True)
 
-		gradFirst = first.new_zeros([ first.size(0), first.size(1), first.size(2), first.size(3) ]) if self.needs_input_grad[0] == True else None
-		gradSecond = first.new_zeros([ first.size(0), first.size(1), first.size(2), first.size(3) ]) if self.needs_input_grad[1] == True else None
+		gradFirst = torch.zeros([ first.size(0), first.size(1), first.size(2), first.size(3) ], device=first.device, dtype=first.dtype) if self.needs_input_grad[0] == True else None
+		gradSecond = torch.zeros([ first.size(0), first.size(1), first.size(2), first.size(3) ], device=first.device, dtype=first.dtype) if self.needs_input_grad[1] == True else None
 
 		if first.is_cuda == True:
 			if gradFirst is not None:
