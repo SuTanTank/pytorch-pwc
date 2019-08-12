@@ -181,13 +181,6 @@ class NewNetwork(torch.nn.Module):
                 tensorSix = self.moduleSix(tensorFiv)
                 return tensorSix
 
-        self.moduleExtractor1 = Extractor1()
-        self.moduleExtractor2 = Extractor2()
-        self.moduleExtractor3 = Extractor3()
-        self.moduleExtractor4 = Extractor4()
-        self.moduleExtractor5 = Extractor5()
-        self.moduleExtractor6 = Extractor6()
-
         class Decoder(torch.nn.Module):
             def __init__(self, intLevel):
                 super(Decoder, self).__init__()
@@ -263,65 +256,78 @@ class NewNetwork(torch.nn.Module):
         # end
 
         class DecoderFirst(torch.nn.Module):
-            def __init__(self, intLevel):
+            def __init__(self):
                 super(DecoderFirst, self).__init__()
 
-                intPrevious = \
-                [None, None, 81 + 32 + 2 + 2, 81 + 64 + 2 + 2, 81 + 96 + 2 + 2, 81 + 128 + 2 + 2, 81, None][
-                    intLevel + 1]
-                intCurrent = \
-                [None, None, 81 + 32 + 2 + 2, 81 + 64 + 2 + 2, 81 + 96 + 2 + 2, 81 + 128 + 2 + 2, 81, None][
-                    intLevel + 0]
+                class FeatureProcessor(torch.nn.Module):
+                    def __init__(self):
+                        super(FeatureProcessor, self).__init__()
+                        intCurrent = 81
+                        self.moduleOne = torch.nn.Sequential(
+                            torch.nn.Conv2d(in_channels=intCurrent, out_channels=128, kernel_size=3, stride=1, padding=1),
+                            torch.nn.LeakyReLU(inplace=False, negative_slope=0.1)
+                        )
 
-                self.moduleOne = torch.nn.Sequential(
-                    torch.nn.Conv2d(in_channels=intCurrent, out_channels=128, kernel_size=3, stride=1, padding=1),
-                    torch.nn.LeakyReLU(inplace=False, negative_slope=0.1)
-                )
+                        self.moduleTwo = torch.nn.Sequential(
+                            torch.nn.Conv2d(in_channels=intCurrent + 128, out_channels=128, kernel_size=3, stride=1, padding=1),
+                            torch.nn.LeakyReLU(inplace=False, negative_slope=0.1)
+                        )
 
-                self.moduleTwo = torch.nn.Sequential(
-                    torch.nn.Conv2d(in_channels=intCurrent + 128, out_channels=128, kernel_size=3, stride=1, padding=1),
-                    torch.nn.LeakyReLU(inplace=False, negative_slope=0.1)
-                )
+                        self.moduleThr = torch.nn.Sequential(
+                            torch.nn.Conv2d(in_channels=intCurrent + 128 + 128, out_channels=96, kernel_size=3, stride=1,
+                                            padding=1),
+                            torch.nn.LeakyReLU(inplace=False, negative_slope=0.1)
+                        )
 
-                self.moduleThr = torch.nn.Sequential(
-                    torch.nn.Conv2d(in_channels=intCurrent + 128 + 128, out_channels=96, kernel_size=3, stride=1,
-                                    padding=1),
-                    torch.nn.LeakyReLU(inplace=False, negative_slope=0.1)
-                )
+                        self.moduleFou = torch.nn.Sequential(
+                            torch.nn.Conv2d(in_channels=intCurrent + 128 + 128 + 96, out_channels=64, kernel_size=3, stride=1,
+                                            padding=1),
+                            torch.nn.LeakyReLU(inplace=False, negative_slope=0.1)
+                        )
 
-                self.moduleFou = torch.nn.Sequential(
-                    torch.nn.Conv2d(in_channels=intCurrent + 128 + 128 + 96, out_channels=64, kernel_size=3, stride=1,
-                                    padding=1),
-                    torch.nn.LeakyReLU(inplace=False, negative_slope=0.1)
-                )
+                        self.moduleFiv = torch.nn.Sequential(
+                            torch.nn.Conv2d(in_channels=intCurrent + 128 + 128 + 96 + 64, out_channels=32, kernel_size=3,
+                                            stride=1, padding=1),
+                            torch.nn.LeakyReLU(inplace=False, negative_slope=0.1)
+                        )
 
-                self.moduleFiv = torch.nn.Sequential(
-                    torch.nn.Conv2d(in_channels=intCurrent + 128 + 128 + 96 + 64, out_channels=32, kernel_size=3,
-                                    stride=1, padding=1),
-                    torch.nn.LeakyReLU(inplace=False, negative_slope=0.1)
-                )
+                    def forward(self, tensorVolume):
+                        tensorFeat = torch.cat([tensorVolume], 1)
 
-                self.moduleSix = torch.nn.Sequential(
-                    torch.nn.Conv2d(in_channels=intCurrent + 128 + 128 + 96 + 64 + 32, out_channels=2, kernel_size=3,
-                                    stride=1, padding=1)
-                )
+                        tensorFeat = torch.cat([self.moduleOne(tensorFeat), tensorFeat], 1)
+                        tensorFeat = torch.cat([self.moduleTwo(tensorFeat), tensorFeat], 1)
+                        tensorFeat = torch.cat([self.moduleThr(tensorFeat), tensorFeat], 1)
+                        tensorFeat = torch.cat([self.moduleFou(tensorFeat), tensorFeat], 1)
+                        tensorFeat = torch.cat([self.moduleFiv(tensorFeat), tensorFeat], 1)
 
+                        return tensorFeat
+
+                class FlowProcessor(torch.nn.Module):
+                    def __init__(self):
+                        super(FlowProcessor, self).__init__()
+                        intCurrent = 81
+                        self.moduleSix = torch.nn.Sequential(
+                            torch.nn.Conv2d(in_channels=intCurrent + 128 + 128 + 96 + 64 + 32, out_channels=2,
+                                            kernel_size=3,
+                                            stride=1, padding=1)
+                        )
+
+                    def forward(self, tensorFeat):
+                        return self.moduleSix(tensorFeat)
+
+                self.featureProcessor = FeatureProcessor()
+                self.flowProcessor = FlowProcessor()
             # end
 
             def forward(self, tensorFirst, tensorSecond):
                 corr = correlation.FunctionCorrelation(tensorFirst=tensorFirst, tensorSecond=tensorSecond)
                 tensorVolume = torch.nn.functional.leaky_relu(input=corr, negative_slope=0.1, inplace=False)
-
-                tensorFeat = torch.cat([tensorVolume], 1)
-
-                tensorFeat = torch.cat([self.moduleOne(tensorFeat), tensorFeat], 1)
-                tensorFeat = torch.cat([self.moduleTwo(tensorFeat), tensorFeat], 1)
-                tensorFeat = torch.cat([self.moduleThr(tensorFeat), tensorFeat], 1)
-                tensorFeat = torch.cat([self.moduleFou(tensorFeat), tensorFeat], 1)
-                tensorFeat = torch.cat([self.moduleFiv(tensorFeat), tensorFeat], 1)
-
-                tensorFlow = self.moduleSix(tensorFeat)
-
+                feature1 = torch.jit.trace(self.featureProcessor, tensorVolume)
+                feature1.save("feature1.pt")
+                tensorFeat = self.featureProcessor(tensorVolume)
+                flow1 = torch.jit.trace(self.flowProcessor, tensorFeat)
+                flow1.save("flow1.pt")
+                tensorFlow = self.flowProcessor(tensorFeat)
                 return {
                     'tensorFlow': tensorFlow,
                     'tensorFeat': tensorFeat
@@ -330,11 +336,6 @@ class NewNetwork(torch.nn.Module):
 
         # end
 
-        self.moduleTwo = Decoder(2)
-        self.moduleThr = Decoder(3)
-        self.moduleFou = Decoder(4)
-        self.moduleFiv = Decoder(5)
-        self.moduleSix = DecoderFirst(6)
 
         class Refiner(torch.nn.Module):
             def __init__(self):
@@ -364,9 +365,19 @@ class NewNetwork(torch.nn.Module):
             # end
 
         # end
+
+        self.moduleExtractor1 = Extractor1()
+        self.moduleExtractor2 = Extractor2()
+        self.moduleExtractor3 = Extractor3()
+        self.moduleExtractor4 = Extractor4()
+        self.moduleExtractor5 = Extractor5()
+        self.moduleExtractor6 = Extractor6()
+        self.moduleDecoderFirst = DecoderFirst()
+        self.moduleFiv = Decoder(5)
+        self.moduleFou = Decoder(4)
+        self.moduleThr = Decoder(3)
+        self.moduleTwo = Decoder(2)
         self.moduleRefiner = Refiner()
-
-
 
     def forward(self, tensorFirst, tensorSecond):
 
@@ -399,7 +410,7 @@ class NewNetwork(torch.nn.Module):
         tensorFeatSecond.append(self.moduleExtractor5(tensorFeatSecond[-1]))
         tensorFeatSecond.append(self.moduleExtractor6(tensorFeatSecond[-1]))
 
-        objectEstimate = self.moduleSix(tensorFeatFirst[-1], tensorFeatSecond[-1], None)
+        objectEstimate = self.moduleDecoderFirst(tensorFeatFirst[-1], tensorFeatSecond[-1])
         objectEstimate = self.moduleFiv(tensorFeatFirst[-2], tensorFeatSecond[-2], objectEstimate)
         objectEstimate = self.moduleFou(tensorFeatFirst[-3], tensorFeatSecond[-3], objectEstimate)
         objectEstimate = self.moduleThr(tensorFeatFirst[-4], tensorFeatSecond[-4], objectEstimate)
@@ -645,12 +656,19 @@ newNetwork.moduleExtractor3.moduleThr = copy.deepcopy(moduleNetwork.moduleExtrac
 newNetwork.moduleExtractor4.moduleFou = copy.deepcopy(moduleNetwork.moduleExtractor.moduleFou)
 newNetwork.moduleExtractor5.moduleFiv = copy.deepcopy(moduleNetwork.moduleExtractor.moduleFiv)
 newNetwork.moduleExtractor6.moduleSix = copy.deepcopy(moduleNetwork.moduleExtractor.moduleSix)
+
+newNetwork.moduleDecoderFirst.featureProcessor.moduleOne = copy.deepcopy(moduleNetwork.moduleSix.moduleOne)
+newNetwork.moduleDecoderFirst.featureProcessor.moduleTwo = copy.deepcopy(moduleNetwork.moduleSix.moduleTwo)
+newNetwork.moduleDecoderFirst.featureProcessor.moduleThr = copy.deepcopy(moduleNetwork.moduleSix.moduleThr)
+newNetwork.moduleDecoderFirst.featureProcessor.moduleFou = copy.deepcopy(moduleNetwork.moduleSix.moduleFou)
+newNetwork.moduleDecoderFirst.featureProcessor.moduleFiv = copy.deepcopy(moduleNetwork.moduleSix.moduleFiv)
+newNetwork.moduleDecoderFirst.flowProcessor.moduleSix = copy.deepcopy(moduleNetwork.moduleSix.moduleSix)
+
 newNetwork.moduleTwo = copy.deepcopy(moduleNetwork.moduleTwo)
 newNetwork.moduleThr = copy.deepcopy(moduleNetwork.moduleThr)
 newNetwork.moduleFou = copy.deepcopy(moduleNetwork.moduleFou)
 newNetwork.moduleFiv = copy.deepcopy(moduleNetwork.moduleFiv)
-# newNetwork.moduleSix = copy.deepcopy(moduleNetwork.moduleSix)
-newNetwork.moduleSix.mo
+
 newNetwork.moduleRefiner = copy.deepcopy(moduleNetwork.moduleRefiner)
 ##########################################################
 
